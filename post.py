@@ -6,8 +6,10 @@ import time
 from dotenv import load_dotenv
 import requests
 from requests_oauthlib import OAuth1
+from requests_oauthlib import OAuth1Session as session
 import datetime
 import numpy as np
+from pprint import pprint
 
 #「.env」で定義した環境変数を使えるようにする
 load_dotenv()
@@ -45,7 +47,7 @@ result = np.random.choice(items, N, p=prob)
 VIDEO_FILENAME =  result[0]
 
 MEDIA_ENDPOINT_URL = 'https://upload.twitter.com/1.1/media/upload.json'
-POST_TWEET_URL = 'https://api.twitter.com/1.1/statuses/update.json'
+POST_TWEET_URL = 'https://api.twitter.com/2/tweets'
 
 
 # Twitter APIの認証情報を設定
@@ -81,6 +83,8 @@ class VideoTweet(object):
     self.total_bytes = os.path.getsize(self.video_filename)
     self.media_id = None
     self.processing_info = None
+
+    self.req = session(CONSUMER_KEY, CONSUMER_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
 
 
   def upload_init(self):
@@ -199,18 +203,27 @@ class VideoTweet(object):
     '''
     Publishes Tweet with attached video
     '''
+    # ツイート部分のみAPI v2を使用
+    media_ids = [str(self.media_id)]
     d_today = datetime.date.today()
     format_date = d_today.strftime('%-m/%-d')
-    request_data = {
-      'status': f'''🌈#ミュークルじゃんけん 🌈
+    msg = f'''🌈#ミュークルじゃんけん 🌈
 
-今日({format_date})の運試し✨''', 
-      'media_ids': self.media_id
+今日({format_date})の運試し✨'''
+
+    body = {
+        "text": msg,
+        "media": {
+          "media_ids": media_ids
+        }
     }
 
-    req = requests.post(url=POST_TWEET_URL, data=request_data, auth=oauth)
-    print(req.json())
+    res = self.req.post(POST_TWEET_URL, json=body)
 
+    if not (res.status_code >= 200 and res.status_code <= 299):
+        print(f"something went wrong...status:{res.status_code}")
+
+    pprint(res.json())
 
 # ツイートを実行
 if __name__ == '__main__':
